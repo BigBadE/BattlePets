@@ -6,6 +6,7 @@ import bigbade.battlepets.api.PetType;
 import bigbade.battlepets.entities.PetEntity;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.monster.SilverfishEntity;
 import net.minecraft.entity.monster.SlimeEntity;
 import net.minecraft.entity.passive.PigEntity;
 import net.minecraft.entity.passive.TameableEntity;
@@ -34,7 +35,7 @@ public class ConverterItem extends Item {
 
     @Override
     public boolean itemInteractionForEntity(ItemStack stack, PlayerEntity playerIn, LivingEntity target, Hand hand) {
-        return target instanceof TameableEntity || (target instanceof SlimeEntity && ((SlimeEntity) target).getSlimeSize() == 1 && target.getActivePotionEffect(Effects.WEAKNESS) != null) || target instanceof PigEntity;
+        return target instanceof TameableEntity || target instanceof SlimeEntity || target instanceof SilverfishEntity || target instanceof PigEntity;
     }
 
     @Override
@@ -51,15 +52,15 @@ public class ConverterItem extends Item {
 
     @OnlyIn(Dist.CLIENT)
     public void addInformation(ItemStack stack, @Nullable World worldIn, List<ITextComponent> tooltip, ITooltipFlag flagIn) {
-        tooltip.add(new TranslationTextComponent("item.petWand.tooltip.help.convert"));
-        tooltip.add(new TranslationTextComponent("item.petWand.tooltip.help.track"));
-        tooltip.add(new TranslationTextComponent("item.petWand.tooltip.help.more"));
+        tooltip.add(new TranslationTextComponent("item.battlepets.converter.tooltip.help.convert"));
+        tooltip.add(new TranslationTextComponent("item.battlepets.converter.tooltip.help.track"));
+        tooltip.add(new TranslationTextComponent("item.battlepets.converter.tooltip.help.more"));
     }
 
     private void levelUp(PetEntity pet, LivingEntity attacker) {
         PlayerEntity player = (PlayerEntity) attacker;
         if (pet.getLevel() >= Level.MAX_LEVEL) {
-            player.sendMessage(new TranslationTextComponent("chat.pet.level.max"));
+            player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.level.max"));
             return;
         }
 
@@ -71,14 +72,14 @@ public class ConverterItem extends Item {
             for (ItemStack stack : reqs) {
                 if (!hasAmount(player.inventory, stack.getItem(), stack.getCount())) {
                     someMissing = true;
-                    player.sendMessage(new TranslationTextComponent("chat.pet.level.missing", stack.getDisplayName(), stack.getCount()));
+                    player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.level.missing", stack.getDisplayName(), stack.getCount()));
                 }
             }
 
             reqLevel = Level.getLevelExperienceRequirements(pet.getLevel() + 1);
             if (player.experienceLevel < reqLevel) {
                 someMissing = true;
-                player.sendMessage(new TranslationTextComponent("chat.pet.level.missing", new TranslationTextComponent("misc.level.name").getFormattedText(), reqLevel));
+                player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.level.missing", new TranslationTextComponent("misc.battlepets.level.name").getFormattedText(), reqLevel));
             }
         }
 
@@ -94,35 +95,34 @@ public class ConverterItem extends Item {
         }
 
         pet.levelUp();
-        player.sendMessage(new TranslationTextComponent("chat.pet.level.success"));
+        player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.level.success"));
     }
 
     private void convertPet(LivingEntity target, LivingEntity attacker) {
-        PlayerEntity player = (PlayerEntity) target;
+        PlayerEntity player = (PlayerEntity) attacker;
         TameableEntity tameable = null;
         if (target instanceof TameableEntity) {
             tameable = (TameableEntity) target;
             if (!tameable.isTamed()) {
-                player.sendMessage(new TranslationTextComponent("chat.pet.convert.notTamed"));
+                player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.notTamed"));
                 return;
             }
 
             if (!tameable.getOwner().getUniqueID().equals(player.getUniqueID())) {
-                player.sendMessage(new TranslationTextComponent("chat.pet.convert.needOwnership"));
+                player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.needOwnership"));
                 return;
             }
-        } else {
-
+        } else if(!(target instanceof PigEntity)){
             if (target instanceof SlimeEntity) {
                 SlimeEntity slime = (SlimeEntity) target;
                 if (slime.getSlimeSize() != 1) {
-                    System.out.println(slime.getSlimeSize());
-                    player.sendMessage(new TranslationTextComponent("chat.pet.convert.notSmallSlime"));
+                    player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.notSmallSlime"));
                     return;
                 }
             }
+
             if (!target.isPotionActive(Effects.WEAKNESS)) {
-                player.sendMessage(new TranslationTextComponent("chat.pet.convert.weakness"));
+                player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.weakness"));
                 return;
             }
         }
@@ -132,9 +132,9 @@ public class ConverterItem extends Item {
                 continue;
             }
 
+            target.setInvisible(true);
             PetEntity pet = new PetEntity(target.getEntityWorld(), type, player.getUniqueID());
             pet.setPosition(target.posX, target.posY, target.posZ);
-            //pet.setOwnerName( target.getOwnerName() );
             pet.setOwnerUUID(player.getGameProfile().getId());
             pet.setPetType(type);
             if (tameable != null) pet.setSitting(tameable.isSitting());
@@ -145,11 +145,11 @@ public class ConverterItem extends Item {
             target.remove();
             target.getEntityWorld().addEntity(pet);
 
-            player.sendMessage(new TranslationTextComponent("chat.pet.convert.success"));
+            player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.success"));
             return;
         }
 
-        player.sendMessage(new TranslationTextComponent("chat.pet.convert.failure"));
+        player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.failure"));
     }
 
     private boolean hasAmount(IInventory inv, Item item, int reqAmount) {

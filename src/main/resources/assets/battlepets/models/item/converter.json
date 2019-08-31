@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "battlepets:item/converter"
+    "layer0": "battlepets:items/converter"
   }
 }

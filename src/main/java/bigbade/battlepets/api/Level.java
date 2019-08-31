@@ -27,11 +27,11 @@ public class Level {
     }
 
     static void configure(ForgeConfigSpec.Builder builder) {
-        MAX_LEVEL = MaxLevel.get();
         MaxLevel = builder
                 .comment("If you change this, delete the 'levelReqs' category and let it re-generate")
                 .translation("config.level")
                 .defineInRange("MaxLevel", 25, 0, Integer.MAX_VALUE);
+        MAX_LEVEL = MaxLevel.get();
 
         Map<Integer, List<ItemStack>> levelItemReqs = new HashMap<Integer, List<ItemStack>>();
         Map<Integer, Integer> levelXpReqs = new HashMap<Integer, Integer>();
