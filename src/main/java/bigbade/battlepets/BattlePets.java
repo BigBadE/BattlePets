@@ -9,6 +9,8 @@ public class BattlePets {
     public static Logger LOGGER = LogManager.getLogger("battlepets");
     public static BattlePetsTab TAB = new BattlePetsTab();
 
+    public static boolean FANCY_STAT_RENDERER;
+
     public BattlePets() {
 
     }

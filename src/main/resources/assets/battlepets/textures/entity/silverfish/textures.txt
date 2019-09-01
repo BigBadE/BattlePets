@@ -1,4 +1,0 @@
-lightstone
-darkstone
-grub
-tsuchinoko

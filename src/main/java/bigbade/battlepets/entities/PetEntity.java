@@ -65,17 +65,13 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
 
     private float jumpPower;
 
-    private boolean allowStandSliding ;
+    private String texture;
 
-    public PetEntity(World worldIn, PetType type, UUID ownerUUID) {
+    public PetEntity(World worldIn) {
         super(EntityRegistry.PETENTITY, worldIn);
-        this.type = type;
-        setSize(type.width, type.height);
         level = 0;
         sitting = false;
         skillPoints = 1;
-        this.ownerUUID = ownerUUID;
-        skills = Ints.asList(type.skills);
 
         goalSelector.addGoal(1, new SwimGoal(this));
         goalSelector.addGoal(2, new SitGoal(this));
@@ -155,6 +151,8 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
         return goalSelector;
     }
 
+    public PetType getPetType() { return type; }
+
     public void setHunger(float hunger) {
         this.hunger = hunger;
     }
@@ -162,6 +160,10 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
     public void setSaturation(float saturation) {
         this.saturation = saturation;
     }
+
+    public String getTexture() { return texture; }
+
+    public void setTexture(String texture) { this.texture = texture; }
 
     public boolean hasSkill(int id) {
         return skills.contains(id);
@@ -204,6 +206,10 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
         sitting = compound.getBoolean("sitting");
 
         ownerUUID = compound.getUniqueId("owner");
+
+        setSize(type.width, type.height);
+        skills = Ints.asList(type.skills);
+        texture = type.textures[0];
     }
 
     public void fall(float distance, float damageMultiplier) {
@@ -386,17 +392,16 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
                 f1 *= 0.25F;
             }
 
+            double d0 = 0;
+
             if (this.jumpPower > 0 && !this.isJumping && onGround) {
-                double d0 = 0.85f * (double) this.jumpPower;
-                double d1;
+                d0 = 0.85f * (double) this.jumpPower;
                 if (this.isPotionActive(Effects.JUMP_BOOST)) {
-                    d1 = d0 + (double) ((float) (this.getActivePotionEffect(Effects.JUMP_BOOST).getAmplifier() + 1) * 0.1F);
-                } else {
-                    d1 = d0;
+                    d0 += (double) ((float) (this.getActivePotionEffect(Effects.JUMP_BOOST).getAmplifier() + 1) * 0.1F);
                 }
 
                 Vec3d vec3d = this.getMotion();
-                this.setMotion(vec3d.x, d1, vec3d.z);
+                //this.setMotion(vec3d.x, d0, vec3d.z);
                 this.setJumping(true);
                 this.isAirBorne = true;
                 if (f1 > 0.0F) {
@@ -412,7 +417,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
             this.jumpMovementFactor = this.getAIMoveSpeed() * 0.1F;
             if (this.canPassengerSteer()) {
                 this.setAIMoveSpeed((float) this.getAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).getValue());
-                super.travel(new Vec3d(f, movement.y, f1));
+                super.travel(new Vec3d(f, movement.y+d0, f1));
             } else if (livingentity instanceof PlayerEntity) {
                 this.setMotion(Vec3d.ZERO);
             }
@@ -444,7 +449,6 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
         if(jumpPowerIn < 0) {
             jumpPowerIn = 0;
         } else {
-            this.allowStandSliding = true;
         }
 
         if (jumpPowerIn >= 90) {

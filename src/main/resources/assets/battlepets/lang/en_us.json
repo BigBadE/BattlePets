@@ -1,5 +1,8 @@
 {
   "config.level": "Max Level",
+  "config.fancystats": "Fancy Stats",
+  "config.itemprop": "Item Properties",
+  "config.xpprop": "XP Properties",
   "item.battlepets.converter": "Pet Wand",
   "item.battlepets.converter.tooltip.help.convert": "Left click a vanilla tamed pet to convert.",
   "item.battlepets.converter.tooltip.help.track": "Right click a block to find converted pets you own.",

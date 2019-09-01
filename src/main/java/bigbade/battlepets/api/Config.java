@@ -1,5 +1,7 @@
 package bigbade.battlepets.api;
 
+import bigbade.battlepets.BattlePets;
+import bigbade.battlepets.client.render.RendererPetEntity;
 import net.minecraftforge.common.ForgeConfigSpec;
 
 public class Config {
@@ -11,6 +13,11 @@ public class Config {
         public General(ForgeConfigSpec.Builder builder) {
             builder.push("General");
             Level.configure(builder);
+            ForgeConfigSpec.ConfigValue<Boolean> FancyStats = builder
+                    .comment("Display fancy stats over a pet's head.")
+                    .translation("config.fancystats")
+                    .define("FancyStats", true);
+            BattlePets.FANCY_STAT_RENDERER = FancyStats.get();
             builder.pop();
         }
     }

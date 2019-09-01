@@ -4,17 +4,22 @@ import bigbade.battlepets.BattlePets;
 import bigbade.battlepets.api.Level;
 import bigbade.battlepets.api.PetType;
 import bigbade.battlepets.entities.PetEntity;
+import bigbade.battlepets.registries.EntityRegistry;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.monster.SilverfishEntity;
 import net.minecraft.entity.monster.SlimeEntity;
+import net.minecraft.entity.passive.OcelotEntity;
 import net.minecraft.entity.passive.PigEntity;
 import net.minecraft.entity.passive.TameableEntity;
+import net.minecraft.entity.passive.WolfEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Rarity;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.potion.Effects;
 import net.minecraft.util.Hand;
 import net.minecraft.util.text.ITextComponent;
@@ -22,6 +27,7 @@ import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -35,11 +41,13 @@ public class ConverterItem extends Item {
 
     @Override
     public boolean itemInteractionForEntity(ItemStack stack, PlayerEntity playerIn, LivingEntity target, Hand hand) {
-        return target instanceof TameableEntity || target instanceof SlimeEntity || target instanceof SilverfishEntity || target instanceof PigEntity;
+        return target instanceof WolfEntity || target instanceof OcelotEntity || target instanceof SlimeEntity || target instanceof SilverfishEntity || target instanceof PigEntity;
     }
 
     @Override
     public boolean hitEntity(ItemStack stack, LivingEntity target, LivingEntity attacker) {
+        if(target.getEntityWorld().isRemote)
+            return true;
         if (itemInteractionForEntity(stack, null, target, Hand.MAIN_HAND)) {
             if (target instanceof PetEntity) {
                 levelUp((PetEntity) target, attacker);
@@ -101,7 +109,7 @@ public class ConverterItem extends Item {
     private void convertPet(LivingEntity target, LivingEntity attacker) {
         PlayerEntity player = (PlayerEntity) attacker;
         TameableEntity tameable = null;
-        if (target instanceof TameableEntity) {
+        if (target instanceof WolfEntity) {
             tameable = (TameableEntity) target;
             if (!tameable.isTamed()) {
                 player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.notTamed"));
@@ -112,7 +120,12 @@ public class ConverterItem extends Item {
                 player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.needOwnership"));
                 return;
             }
-        } else if(!(target instanceof PigEntity)){
+        } else if(target instanceof OcelotEntity) {
+            if(!((boolean) target.getDataManager().get(ObfuscationReflectionHelper.getPrivateValue(OcelotEntity.class, null, "IS_TRUSTING")))) {
+                player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.notTamed"));
+                return;
+            }
+        } else if (!(target instanceof PigEntity)) {
             if (target instanceof SlimeEntity) {
                 SlimeEntity slime = (SlimeEntity) target;
                 if (slime.getSlimeSize() != 1) {
@@ -133,17 +146,15 @@ public class ConverterItem extends Item {
             }
 
             target.setInvisible(true);
-            PetEntity pet = new PetEntity(target.getEntityWorld(), type, player.getUniqueID());
-            pet.setPosition(target.posX, target.posY, target.posZ);
-            pet.setOwnerUUID(player.getGameProfile().getId());
-            pet.setPetType(type);
-            if (tameable != null) pet.setSitting(tameable.isSitting());
-            if (target.getCustomName() != null) {
-                pet.setCustomName(target.getCustomName());
-            }
-
+            CompoundNBT nbt = new CompoundNBT();
+            nbt.putInt("type", type.ordinal());
+            nbt.putUniqueId("owner", player.getGameProfile().getId());
+            if (tameable != null) nbt.putBoolean("sitting", tameable.isSitting());
+            ITextComponent name = null;
+            if (target.getCustomName() != null)
+                name = target.getCustomName();
+            PetEntity pet = EntityRegistry.PETENTITY.spawn(target.getEntityWorld(), nbt, null, player, target.getPosition(), SpawnReason.EVENT, false, false);
             target.remove();
-            target.getEntityWorld().addEntity(pet);
 
             player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.success"));
             return;
