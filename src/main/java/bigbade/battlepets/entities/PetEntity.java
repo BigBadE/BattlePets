@@ -1,13 +1,11 @@
 package bigbade.battlepets.entities;
 
-import bigbade.battlepets.BattlePets;
-import bigbade.battlepets.ai.*;
 import bigbade.battlepets.ai.FollowOwnerGoal;
 import bigbade.battlepets.ai.SitGoal;
+import bigbade.battlepets.ai.*;
 import bigbade.battlepets.api.Level;
 import bigbade.battlepets.api.PetType;
 import bigbade.battlepets.items.ConverterItem;
-import bigbade.battlepets.network.BattlePetsPacketHandler;
 import bigbade.battlepets.registries.EntityRegistry;
 import bigbade.battlepets.skills.AttackSkill;
 import bigbade.battlepets.skills.FoodSkill;
@@ -15,32 +13,19 @@ import bigbade.battlepets.skills.Skill;
 import com.google.common.primitives.Ints;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.SoundType;
-import net.minecraft.block.material.Material;
 import net.minecraft.entity.*;
 import net.minecraft.entity.ai.goal.*;
-import net.minecraft.entity.item.ItemEntity;
-import net.minecraft.entity.merchant.villager.WanderingTraderEntity;
 import net.minecraft.entity.monster.AbstractSkeletonEntity;
 import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.CowEntity;
-import net.minecraft.entity.passive.OcelotEntity;
 import net.minecraft.entity.passive.WolfEntity;
-import net.minecraft.entity.passive.horse.AbstractHorseEntity;
-import net.minecraft.entity.passive.horse.HorseEntity;
-import net.minecraft.entity.passive.horse.SkeletonHorseEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.item.Food;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.item.*;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
-import net.minecraft.network.play.server.SEntityMetadataPacket;
+import net.minecraft.particles.ParticleTypes;
 import net.minecraft.potion.Effects;
-import net.minecraft.potion.Potion;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.Hand;
 import net.minecraft.util.SoundEvent;
@@ -52,22 +37,21 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.network.PacketDistributor;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 import javax.annotation.Nullable;
-import javax.swing.text.html.Option;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 public class PetEntity extends AnimalEntity implements IJumpingMount {
-    private DataParameter<Integer> level = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
-    private DataParameter<Integer> skillPoints = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
-    private DataParameter<Boolean> sitting = EntityDataManager.createKey(PetEntity.class, DataSerializers.BOOLEAN);
-    private DataParameter<Integer> type = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
-    private DataParameter<Optional<UUID>> ownerUUID = EntityDataManager.createKey(PetEntity.class, DataSerializers.OPTIONAL_UNIQUE_ID);
+    private DataParameter<Integer> level;
+    private DataParameter<Integer> skillPoints;
+    private DataParameter<Integer> type;
+    private DataParameter<Integer> collar;
+    private DataParameter<Boolean> sitting;
+    private DataParameter<Optional<UUID>> ownerUUID;
 
     private float width;
     private float height;
@@ -82,21 +66,13 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
 
     public PetEntity(World worldIn, PetType type, UUID owner) {
         super(EntityRegistry.PETENTITY, worldIn);
-        if (!worldIn.isRemote) {
-            dataManager.register(level, 0);
-            dataManager.register(skillPoints, 1);
-            dataManager.register(sitting, false);
 
-            dataManager.register(this.type, type.ordinal());
-            dataManager.register(ownerUUID, Optional.of(owner));
-        }
-        dataManager.getAll().forEach((data) -> data.setDirty(true));
-        for (ServerPlayerEntity player : worldIn.getServer().getPlayerList().getPlayers())
-            BattlePetsPacketHandler.INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), new SEntityMetadataPacket(this.getEntityId(), getDataManager(), true));
         setSize(type.width, type.height);
         skills = Ints.asList(type.skills);
         texture = type.textures[0];
 
+        dataManager.set(this.type, type.ordinal());
+        dataManager.set(ownerUUID, Optional.of(owner));
 
         goalSelector.addGoal(1, new SwimGoal(this));
         goalSelector.addGoal(2, new SitGoal(this));
@@ -106,6 +82,8 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
         goalSelector.addGoal(6, new PickupItemsGoal(this, 1.0D));
         goalSelector.addGoal(7, new WaterAvoidingRandomWalkingGoal(this, 0.6D));
         goalSelector.addGoal(8, new LookAtGoal(this, PlayerEntity.class, 9.0F));
+        if (type == PetType.DOG)
+            this.goalSelector.addGoal(9, new PetBegGoal(this, 8.0F));
         targetSelector.addGoal(1, new OwnerHurtGoal(this));
         targetSelector.addGoal(3, new OwnerAttackGoal(this));
         targetSelector.addGoal(2, new HurtByTargetGoal(this));
@@ -115,6 +93,35 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
     protected void registerAttributes() {
         super.registerAttributes();
         this.getAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.3F);
+    }
+
+    @Override
+    protected SoundEvent getAmbientSound() {
+        return PetType.values()[dataManager.get(type)].getLivingSound();
+    }
+
+    @Override
+    public int getTalkInterval() {
+        return 900;
+    }
+
+    @Override
+    public void registerData() {
+        super.registerData();
+        level = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+        skillPoints = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+        sitting = EntityDataManager.createKey(PetEntity.class, DataSerializers.BOOLEAN);
+        type = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+        ownerUUID = EntityDataManager.createKey(PetEntity.class, DataSerializers.OPTIONAL_UNIQUE_ID);
+        collar = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+        dataManager.register(level, 0);
+        dataManager.register(skillPoints, 1);
+        dataManager.register(sitting, false);
+
+        dataManager.register(this.type, 0);
+        dataManager.register(ownerUUID, Optional.empty());
+
+        dataManager.register(collar, DyeColor.RED.getId());
     }
 
     //TODO add breedable pets
@@ -180,6 +187,10 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
         return PetType.values()[dataManager.get(type)];
     }
 
+    public List<Integer> getSkills() {
+        return skills;
+    }
+
     public void setHunger(float hunger) {
         this.hunger = hunger;
     }
@@ -189,7 +200,15 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
     }
 
     public String getTexture() {
-        return texture;
+        StringBuilder builder = new StringBuilder("textures/entity/");
+        PetType petType = PetType.values()[dataManager.get(type)];
+        builder.append(petType.name().toLowerCase()).append("/");
+        if (petType == PetType.DOG) {
+            if (angry) builder.append("angry-");
+            else builder.append("tame-");
+        }
+        builder.append(texture).append(".png");
+        return builder.toString();
     }
 
     public void setTexture(String texture) {
@@ -222,6 +241,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
         compound.putInt("level", dataManager.get(level));
         compound.putInt("skillPoints", dataManager.get(skillPoints));
         compound.putInt("petType", dataManager.get(type));
+        compound.putInt("collar", dataManager.get(collar));
 
         compound.putBoolean("sitting", dataManager.get(sitting));
 
@@ -233,6 +253,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
         dataManager.set(level, compound.getInt("level"));
         dataManager.set(skillPoints, compound.getInt("skillPoints"));
         dataManager.set(type, compound.getInt("petType"));
+        dataManager.set(collar, compound.getInt("collar"));
 
         dataManager.set(sitting, compound.getBoolean("sitting"));
 
@@ -264,6 +285,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
 
     @Override
     public boolean processInteract(PlayerEntity player, Hand hand) {
+        //TODO open pet inventory
         /*if (player.isSneaking() && held.getItem() instanceof ConverterItem) {
             if (player.getUniqueID().equals(getOwnerUUID())) {
                 BattlePets.proxy.setPendingPetForGui((world.isRemote ? 0 : 1), this);
@@ -301,10 +323,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
                 setSaturation(getSaturation() + food.getSaturation());
 
                 if (!player.isCreative()) {
-                    held.setCount(held.getCount() - 1);
-                    if (held.getCount() <= 0) {
-                        player.inventory.setInventorySlotContents(player.inventory.currentItem, new ItemStack(Items.AIR));
-                    }
+                    held.shrink(1);
                 }
                 return true;
             }
@@ -320,10 +339,19 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
             } else {
                 player.sendMessage(new TranslationTextComponent("chat.pet.notYours"));
             }
+        } else if (held.getItem() instanceof DyeItem) {
+            DyeColor dyecolor = ((DyeItem)held.getItem()).getDyeColor();
+            if (dyecolor.getId() != this.getCollar()) {
+                dataManager.set(collar, dyecolor.getId());
+                if (!player.abilities.isCreativeMode) {
+                    held.shrink(1);
+                }
+
+                return true;
+            }
         } else {
             if (player.getUniqueID().equals(getOwnerUUID())) {
                 setSitting(!isSitting());
-                System.out.println("Sitting");
             } else {
                 player.sendMessage(new TranslationTextComponent("chat.pet.notYours"));
             }
@@ -512,5 +540,158 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
     @Override
     public boolean canBeSteered() {
         return true;
+    }
+
+    //Wolf methods
+
+    private boolean isWet = false;
+    private boolean isShaking = false;
+    private float timeWolfIsShaking;
+    private float prevTimeWolfIsShaking;
+    private float headRotationCourse;
+    private float headRotationCourseOld;
+    private boolean begging;
+    private boolean angry;
+
+    public int getCollar() {
+        return dataManager.get(collar);
+    }
+
+    public boolean getBegging() {
+        return begging;
+    }
+
+    public void setBegging(boolean begging) {
+        this.begging = begging;
+    }
+
+    public boolean getAngry() {
+        return angry;
+    }
+
+    public void setAngry(boolean angry) {
+        this.angry = angry;
+    }
+
+    public void setAttackTarget(@Nullable LivingEntity entitylivingbaseIn) {
+        super.setAttackTarget(entitylivingbaseIn);
+        if (entitylivingbaseIn == null) {
+            this.setAngry(false);
+        } else {
+            this.setAngry(true);
+        }
+
+    }
+
+    @Override
+    public void livingTick() {
+        super.livingTick();
+        if (dataManager.get(type) == PetType.DOG.ordinal() && !this.world.isRemote && this.isWet && !this.isShaking && !this.hasPath() && this.onGround) {
+            this.isShaking = true;
+            this.timeWolfIsShaking = 0.0F;
+            this.prevTimeWolfIsShaking = 0.0F;
+            this.world.setEntityState(this, (byte) 8);
+        }
+
+        if (!this.world.isRemote && this.getAttackTarget() == null && getAngry()) {
+            this.setAngry(false);
+        }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (this.isAlive()) {
+            this.headRotationCourseOld = this.headRotationCourse;
+            if (begging) {
+                this.headRotationCourse += (1.0F - this.headRotationCourse) * 0.4F;
+            } else {
+                this.headRotationCourse += (0.0F - this.headRotationCourse) * 0.4F;
+            }
+
+            if (this.isInWaterRainOrBubbleColumn()) {
+                this.isWet = true;
+                this.isShaking = false;
+                this.timeWolfIsShaking = 0.0F;
+                this.prevTimeWolfIsShaking = 0.0F;
+            } else if ((this.isWet || this.isShaking) && this.isShaking) {
+                if (this.timeWolfIsShaking == 0.0F) {
+                    this.playSound(SoundEvents.ENTITY_WOLF_SHAKE, this.getSoundVolume(), (this.rand.nextFloat() - this.rand.nextFloat()) * 0.2F + 1.0F);
+                }
+
+                this.prevTimeWolfIsShaking = this.timeWolfIsShaking;
+                this.timeWolfIsShaking += 0.05F;
+                if (this.prevTimeWolfIsShaking >= 2.0F) {
+                    this.isWet = false;
+                    this.isShaking = false;
+                    this.prevTimeWolfIsShaking = 0.0F;
+                    this.timeWolfIsShaking = 0.0F;
+                }
+
+                if (this.timeWolfIsShaking > 0.4F) {
+                    float f = (float) this.getBoundingBox().minY;
+                    int i = (int) (MathHelper.sin((this.timeWolfIsShaking - 0.4F) * (float) Math.PI) * 7.0F);
+                    Vec3d vec3d = this.getMotion();
+
+                    for (int j = 0; j < i; ++j) {
+                        float f1 = (this.rand.nextFloat() * 2.0F - 1.0F) * this.getWidth() * 0.5F;
+                        float f2 = (this.rand.nextFloat() * 2.0F - 1.0F) * this.getWidth() * 0.5F;
+                        this.world.addParticle(ParticleTypes.SPLASH, this.posX + (double) f1, (double) (f + 0.8F), this.posZ + (double) f2, vec3d.x, vec3d.y, vec3d.z);
+                    }
+                }
+            }
+
+        }
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public float getShadingWhileWet(float p_70915_1_) {
+        return 0.75F + MathHelper.lerp(p_70915_1_, this.prevTimeWolfIsShaking, this.timeWolfIsShaking) / 2.0F * 0.25F;
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public float getShakeAngle(float p_70923_1_, float p_70923_2_) {
+        float f = (MathHelper.lerp(p_70923_1_, this.prevTimeWolfIsShaking, this.timeWolfIsShaking) + p_70923_2_) / 1.8F;
+        if (f < 0.0F) {
+            f = 0.0F;
+        } else if (f > 1.0F) {
+            f = 1.0F;
+        }
+
+        return MathHelper.sin(f * (float) Math.PI) * MathHelper.sin(f * (float) Math.PI * 11.0F) * 0.15F * (float) Math.PI;
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public float getInterestedAngle(float p_70917_1_) {
+        return MathHelper.lerp(p_70917_1_, this.headRotationCourseOld, this.headRotationCourse) * 0.15F * (float) Math.PI;
+    }
+
+    protected float getStandingEyeHeight(Pose poseIn, EntitySize sizeIn) {
+        return sizeIn.height * 0.8F;
+    }
+
+    /**
+     * The speed it takes to move the entityliving's rotationPitch through the faceEntity method. This is only currently
+     * use in wolves.
+     */
+    public int getVerticalFaceSpeed() {
+        return this.isSitting() ? 20 : super.getVerticalFaceSpeed();
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public void handleStatusUpdate(byte id) {
+        if (id == 8) {
+            this.isShaking = true;
+            this.timeWolfIsShaking = 0.0F;
+            this.prevTimeWolfIsShaking = 0.0F;
+        } else {
+            super.handleStatusUpdate(id);
+        }
+
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public float getTailRotation() {
+        return ((float) Math.PI / 5F);
     }
 }

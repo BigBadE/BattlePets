@@ -2,26 +2,33 @@ package bigbade.battlepets.client.render;
 
 import bigbade.battlepets.BattlePets;
 import bigbade.battlepets.api.PetType;
-import bigbade.battlepets.client.models.ModelDog;
+import bigbade.battlepets.client.models.*;
 import bigbade.battlepets.entities.PetEntity;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.entity.LivingRenderer;
-import net.minecraft.client.renderer.entity.model.*;
+import net.minecraft.client.renderer.entity.MobRenderer;
+import net.minecraft.client.renderer.entity.model.CatModel;
+import net.minecraft.client.renderer.entity.model.EntityModel;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 
 import static org.lwjgl.opengl.GL11.*;
 
-public class RendererPetEntity extends LivingRenderer<PetEntity, EntityModel<PetEntity>> {
+public class RendererPetEntity extends MobRenderer<PetEntity, EntityModel<PetEntity>> {
     public RendererPetEntity() {
         super(Minecraft.getInstance().getRenderManager(), new CatModel(0.0f), 0.45f);
+        this.addLayer(new PetCollarLayer(this));
     }
 
     @Override
     public void doRender(PetEntity pet, double par2, double par4, double par6, float par8, float par9) {
+        if (pet.getPetType() == PetType.DOG && pet.isWet()) {
+            float f = pet.getBrightness() * pet.getShadingWhileWet(par9);
+            GlStateManager.color3f(f, f, f);
+        }
+
         if (pet.getPetType().equals(PetType.CAT)) {
             field_77045_g = catModel;
         } else if (pet.getPetType().equals(PetType.DOG)) {
@@ -36,7 +43,6 @@ public class RendererPetEntity extends LivingRenderer<PetEntity, EntityModel<Pet
         } else if (pet.getPetType().equals(PetType.SILVERFISH)) {
             field_77045_g = silverfishModel;
         }
-
         Minecraft.getInstance().getTextureManager().bindTexture(getEntityTexture(pet));
         super.doRender(pet, par2, par4, par6, par8, par9);
 
@@ -57,7 +63,7 @@ public class RendererPetEntity extends LivingRenderer<PetEntity, EntityModel<Pet
 
     @Override
     protected ResourceLocation getEntityTexture(PetEntity entity) {
-        return new ResourceLocation(entity.getTexture());
+        return new ResourceLocation("battlepets", entity.getTexture());
     }
 
     @Override
@@ -147,14 +153,12 @@ public class RendererPetEntity extends LivingRenderer<PetEntity, EntityModel<Pet
         tess.draw();
     }
 
-    private final EntityModel catModel = new CatModel(0.0f);
+    private final EntityModel catModel = new ModelCat(0.0f);
     private final EntityModel dogModel = new ModelDog();
-    private final EntityModel pigModel = new PigModel();
-    private final EntityModel slimeModel = new SlimeModel(0);
-    private final EntityModel magmaCubeModel = new MagmaCubeModel();
-    private final EntityModel silverfishModel = new SilverfishModel();
-    //private final ResourceLocation catTex = new ResourceLocation( "textures/entity/cat/red.png" );
-    //private final ResourceLocation dogTex = new ResourceLocation( "textures/entity/wolf/wolf_tame.png" );
+    private final EntityModel pigModel = new ModelPig();
+    private final EntityModel slimeModel = new ModelSlime();
+    private final EntityModel magmaCubeModel = new ModelMagmaCube();
+    private final EntityModel silverfishModel = new ModelSilverfish();
 
     private boolean justRendered = false;
 }

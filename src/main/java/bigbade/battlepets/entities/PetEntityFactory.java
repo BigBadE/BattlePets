@@ -25,7 +25,6 @@ import static net.minecraft.entity.EntityType.applyItemNBT;
 public class PetEntityFactory<T extends PetEntity> implements EntityType.IFactory<PetEntity> {
     @Override
     public PetEntity create(EntityType type, World world) {
-        System.out.println("FACTORY CALL");
-        return new PetEntity(world, PetType.DOG, Minecraft.getInstance().player.getUniqueID());
+        return new PetEntity(world, PetType.DOG, null);
     }
 }

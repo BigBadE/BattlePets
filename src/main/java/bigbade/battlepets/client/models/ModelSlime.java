@@ -3,6 +3,7 @@ package bigbade.battlepets.client.models;
 import bigbade.battlepets.entities.PetEntity;
 import net.minecraft.client.renderer.entity.model.SlimeModel;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.monster.SlimeEntity;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import org.lwjgl.opengl.GL11;
@@ -34,5 +35,5 @@ public class ModelSlime extends SlimeModel<PetEntity> {
         GL11.glPopMatrix();
     }
 
-    private ModelSlime child = new ModelSlime();
+    private SlimeModel child = new SlimeModel<SlimeEntity>(0);
 }

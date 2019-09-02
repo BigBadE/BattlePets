@@ -4,6 +4,7 @@ import bigbade.battlepets.entities.PetEntity;
 import net.minecraft.client.renderer.entity.model.RendererModel;
 import net.minecraft.client.renderer.entity.model.SilverfishModel;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.monster.SilverfishEntity;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
@@ -12,7 +13,7 @@ import org.lwjgl.opengl.GL11;
 @OnlyIn(Dist.CLIENT)
 public class ModelSilverfish extends SilverfishModel {
     public ModelSilverfish() {
-        normal = new ModelSilverfish();
+        normal = new SilverfishModel<SilverfishEntity>();
 
         body = ObfuscationReflectionHelper.getPrivateValue(SilverfishModel.class, this, 0);
         wings = ObfuscationReflectionHelper.getPrivateValue(ModelSilverfish.class, this, 1);
@@ -64,7 +65,7 @@ public class ModelSilverfish extends SilverfishModel {
         GL11.glPopMatrix();
     }
 
-    protected ModelSilverfish normal;
+    protected SilverfishModel normal;
     protected RendererModel[] body;
     protected RendererModel[] wings;
 }

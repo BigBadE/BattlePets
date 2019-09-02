@@ -121,10 +121,11 @@ public class ConverterItem extends Item {
                 return;
             }
         } else if (target instanceof OcelotEntity) {
-            if (!((boolean) target.getDataManager().get(ObfuscationReflectionHelper.getPrivateValue(OcelotEntity.class, null, "IS_TRUSTING")))) {
+            //Ocelot taming is weird. I'm sure someone understands this. Right?...
+            /*if (!((boolean) target.getDataManager().get(ObfuscationReflectionHelper.getPrivateValue(OcelotEntity.class, null, "IS_TRUSTING")))) {
                 player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.notTamed"));
                 return;
-            }
+            }*/
         } else if (!(target instanceof PigEntity)) {
             if (target instanceof SlimeEntity) {
                 SlimeEntity slime = (SlimeEntity) target;
@@ -147,7 +148,6 @@ public class ConverterItem extends Item {
 
             PetEntity pet = new PetEntity(target.world, type, player.getGameProfile().getId());
             pet.setPosition(target.posX, target.posY, target.posZ);
-            //pet.setOwnerName( entity.getOwnerName() );
             pet.setOwnerUUID(player.getGameProfile().getId());
             pet.setPetType(type);
             if (tameable != null) pet.setSitting(tameable.isSitting());
@@ -156,7 +156,6 @@ public class ConverterItem extends Item {
             target.world.addEntity(pet);
             target.remove();
 
-            System.out.println(1);
             player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.success"));
             return;
         }

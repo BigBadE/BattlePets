@@ -16,7 +16,6 @@ public class ItemRegistry {
 
     @SubscribeEvent
     public static void onItemRegister(RegistryEvent.Register<Item> event) {
-        System.out.println("REGISTERCONVERTERITEM");
         event.getRegistry().register(new ConverterItem());
     }
 }
