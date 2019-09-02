@@ -8,6 +8,7 @@ import net.minecraft.entity.ai.goal.GoalSelector;
 import net.minecraft.entity.ai.goal.PrioritizedGoal;
 import net.minecraft.entity.ai.goal.WaterAvoidingRandomWalkingGoal;
 import net.minecraft.entity.item.ItemEntity;
+import net.minecraft.entity.passive.OcelotEntity;
 import net.minecraft.pathfinding.GroundPathNavigator;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
@@ -20,17 +21,14 @@ import java.util.List;
 public class PickupItemsGoal extends Goal {
     private PetEntity thePet;
     private LivingEntity theOwner;
-    World theWorld;
+    private World theWorld;
     private double field_75336_f;
-    private GoalSelector petPathfinder;
     private int field_75343_h;
-    private boolean field_75344_i;
 
     public PickupItemsGoal(PetEntity pet, double par2) {
         this.thePet = pet;
         this.theWorld = pet.getEntityWorld();
         this.field_75336_f = par2;
-        this.petPathfinder = pet.getGoalSelector();
         this.setMutexFlags(EnumSet.of(Flag.MOVE));
     }
 
@@ -68,11 +66,6 @@ public class PickupItemsGoal extends Goal {
      */
     public void startExecuting() {
         this.field_75343_h = 0;
-        this.field_75344_i = false;
-        thePet.getGoalSelector().getRunningGoals().forEach((goal) -> {
-            if (goal.func_220772_j() instanceof WaterAvoidingRandomWalkingGoal) field_75344_i = true;
-        });
-        thePet.getGoalSelector().addGoal(7, new WaterAvoidingRandomWalkingGoal(thePet, 0.6));
     }
 
     /**
@@ -81,8 +74,6 @@ public class PickupItemsGoal extends Goal {
     public void resetTask() {
         this.theOwner = null;
         this.thePet.getNavigator().clearPath();
-        if (field_75344_i)
-            thePet.getGoalSelector().addGoal(7, new WaterAvoidingRandomWalkingGoal(thePet, 0.6));
     }
 
     /**

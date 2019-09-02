@@ -22,7 +22,6 @@ public class RendererPetEntity extends LivingRenderer<PetEntity, EntityModel<Pet
 
     @Override
     public void doRender(PetEntity pet, double par2, double par4, double par6, float par8, float par9) {
-        if(pet.getPetType() == null) return;
         if (pet.getPetType().equals(PetType.CAT)) {
             field_77045_g = catModel;
         } else if (pet.getPetType().equals(PetType.DOG)) {

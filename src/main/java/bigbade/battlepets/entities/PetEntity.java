@@ -7,6 +7,7 @@ import bigbade.battlepets.ai.SitGoal;
 import bigbade.battlepets.api.Level;
 import bigbade.battlepets.api.PetType;
 import bigbade.battlepets.items.ConverterItem;
+import bigbade.battlepets.network.BattlePetsPacketHandler;
 import bigbade.battlepets.registries.EntityRegistry;
 import bigbade.battlepets.skills.AttackSkill;
 import bigbade.battlepets.skills.FoodSkill;
@@ -18,19 +19,26 @@ import net.minecraft.block.material.Material;
 import net.minecraft.entity.*;
 import net.minecraft.entity.ai.goal.*;
 import net.minecraft.entity.item.ItemEntity;
+import net.minecraft.entity.merchant.villager.WanderingTraderEntity;
 import net.minecraft.entity.monster.AbstractSkeletonEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.CowEntity;
+import net.minecraft.entity.passive.OcelotEntity;
 import net.minecraft.entity.passive.WolfEntity;
 import net.minecraft.entity.passive.horse.AbstractHorseEntity;
 import net.minecraft.entity.passive.horse.HorseEntity;
 import net.minecraft.entity.passive.horse.SkeletonHorseEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.Food;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.network.datasync.DataParameter;
+import net.minecraft.network.datasync.DataSerializers;
+import net.minecraft.network.datasync.EntityDataManager;
+import net.minecraft.network.play.server.SEntityMetadataPacket;
 import net.minecraft.potion.Effects;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.DamageSource;
@@ -44,18 +52,23 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
+import net.minecraftforge.fml.network.PacketDistributor;
 
 import javax.annotation.Nullable;
+import javax.swing.text.html.Option;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 
-public class PetEntity extends AnimalEntity implements IJumpingMount{
-    private int level;
-    private int skillPoints;
-    private boolean sitting;
-    private PetType type;
-    private UUID ownerUUID;
+public class PetEntity extends AnimalEntity implements IJumpingMount {
+    private DataParameter<Integer> level = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+    private DataParameter<Integer> skillPoints = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+    private DataParameter<Boolean> sitting = EntityDataManager.createKey(PetEntity.class, DataSerializers.BOOLEAN);
+    private DataParameter<Integer> type = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+    private DataParameter<Optional<UUID>> ownerUUID = EntityDataManager.createKey(PetEntity.class, DataSerializers.OPTIONAL_UNIQUE_ID);
+
     private float width;
     private float height;
     private List<Integer> skills;
@@ -67,11 +80,23 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
 
     private String texture;
 
-    public PetEntity(World worldIn) {
+    public PetEntity(World worldIn, PetType type, UUID owner) {
         super(EntityRegistry.PETENTITY, worldIn);
-        level = 0;
-        sitting = false;
-        skillPoints = 1;
+        if (!worldIn.isRemote) {
+            dataManager.register(level, 0);
+            dataManager.register(skillPoints, 1);
+            dataManager.register(sitting, false);
+
+            dataManager.register(this.type, type.ordinal());
+            dataManager.register(ownerUUID, Optional.of(owner));
+        }
+        dataManager.getAll().forEach((data) -> data.setDirty(true));
+        for (ServerPlayerEntity player : worldIn.getServer().getPlayerList().getPlayers())
+            BattlePetsPacketHandler.INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), new SEntityMetadataPacket(this.getEntityId(), getDataManager(), true));
+        setSize(type.width, type.height);
+        skills = Ints.asList(type.skills);
+        texture = type.textures[0];
+
 
         goalSelector.addGoal(1, new SwimGoal(this));
         goalSelector.addGoal(2, new SitGoal(this));
@@ -100,15 +125,15 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
     }
 
     public void setOwnerUUID(UUID uuid) {
-        this.ownerUUID = uuid;
+        dataManager.set(ownerUUID, Optional.of(uuid));
     }
 
     public void setPetType(PetType type) {
-        this.type = type;
+        dataManager.set(this.type, type.ordinal());
     }
 
     public void setSitting(boolean sitting) {
-        this.sitting = sitting;
+        dataManager.set(this.sitting, sitting);
     }
 
     public void setCustomName(String name) {
@@ -116,19 +141,19 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
     }
 
     public void setLevel(int level) {
-        this.level = level;
+        dataManager.set(this.level, level);
     }
 
     public void setFreeSkillPoints(int points) {
-        this.skillPoints = points;
+        dataManager.set(this.skillPoints, points);
     }
 
     public int getLevel() {
-        return level;
+        return dataManager.get(level);
     }
 
     public int getFreeSkillPoints() {
-        return skillPoints;
+        return dataManager.get(skillPoints);
     }
 
     public float getHunger() {
@@ -140,18 +165,20 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
     }
 
     public boolean isSitting() {
-        return sitting;
+        return dataManager.get(sitting);
     }
 
     public UUID getOwnerUUID() {
-        return ownerUUID;
+        return dataManager.get(ownerUUID).get();
     }
 
     public GoalSelector getGoalSelector() {
         return goalSelector;
     }
 
-    public PetType getPetType() { return type; }
+    public PetType getPetType() {
+        return PetType.values()[dataManager.get(type)];
+    }
 
     public void setHunger(float hunger) {
         this.hunger = hunger;
@@ -161,9 +188,13 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
         this.saturation = saturation;
     }
 
-    public String getTexture() { return texture; }
+    public String getTexture() {
+        return texture;
+    }
 
-    public void setTexture(String texture) { this.texture = texture; }
+    public void setTexture(String texture) {
+        this.texture = texture;
+    }
 
     public boolean hasSkill(int id) {
         return skills.contains(id);
@@ -188,28 +219,24 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
 
     @Override
     public void writeAdditional(CompoundNBT compound) {
-        compound.putInt("level", level);
-        compound.putInt("skillPoints", skillPoints);
-        compound.putInt("petType", type.ordinal());
+        compound.putInt("level", dataManager.get(level));
+        compound.putInt("skillPoints", dataManager.get(skillPoints));
+        compound.putInt("petType", dataManager.get(type));
 
-        compound.putBoolean("sitting", sitting);
+        compound.putBoolean("sitting", dataManager.get(sitting));
 
-        compound.putUniqueId("owner", ownerUUID);
+        compound.putUniqueId("owner", dataManager.get(ownerUUID).get());
     }
 
     @Override
     public void readAdditional(CompoundNBT compound) {
-        level = compound.getInt("level");
-        skillPoints = compound.getInt("skillPoints");
-        type = PetType.values()[compound.getInt("petType")];
+        dataManager.set(level, compound.getInt("level"));
+        dataManager.set(skillPoints, compound.getInt("skillPoints"));
+        dataManager.set(type, compound.getInt("petType"));
 
-        sitting = compound.getBoolean("sitting");
+        dataManager.set(sitting, compound.getBoolean("sitting"));
 
-        ownerUUID = compound.getUniqueId("owner");
-
-        setSize(type.width, type.height);
-        skills = Ints.asList(type.skills);
-        texture = type.textures[0];
+        dataManager.set(ownerUUID, Optional.of(compound.getUniqueId("owner")));
     }
 
     public void fall(float distance, float damageMultiplier) {
@@ -219,14 +246,14 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
 
         int i = MathHelper.ceil((distance * 0.5F - 3.0F) * damageMultiplier);
         if (i > 0 && !hasSkill(Skill.DEFENSE_FEATHERFALL.id)) {
-            this.attackEntityFrom(DamageSource.FALL, (float)i);
+            this.attackEntityFrom(DamageSource.FALL, (float) i);
             if (this.isBeingRidden()) {
-                for(Entity entity : this.getRecursivePassengers()) {
-                    entity.attackEntityFrom(DamageSource.FALL, (float)i);
+                for (Entity entity : this.getRecursivePassengers()) {
+                    entity.attackEntityFrom(DamageSource.FALL, (float) i);
                 }
             }
 
-            BlockState blockstate = this.world.getBlockState(new BlockPos(this.posX, this.posY - 0.2D - (double)this.prevRotationYaw, this.posZ));
+            BlockState blockstate = this.world.getBlockState(new BlockPos(this.posX, this.posY - 0.2D - (double) this.prevRotationYaw, this.posZ));
             if (!blockstate.isAir() && !this.isSilent()) {
                 SoundType soundtype = blockstate.getSoundType();
                 this.world.playSound(null, this.posX, this.posY, this.posZ, soundtype.getStepSound(), this.getSoundCategory(), soundtype.getVolume() * 0.5F, soundtype.getPitch() * 0.75F);
@@ -263,7 +290,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
                 }
                 FoodSkill foodSkill = (FoodSkill) skill;
 
-                if (foodSkill.type.doesMatch(type, held)) {
+                if (foodSkill.type.doesMatch(getPetType(), held)) {
                     canEat = true;
                     break;
                 }
@@ -287,9 +314,9 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
             // TODO open inv
         } else if (held.getItem() == Items.AIR && !player.isSneaking() /*&& hasSkill(Skill.TRAVEL_MOUNTABLE.id) && hasSaddle()*/) {
             if (player.getUniqueID().equals(getOwnerUUID())) {
-                    player.rotationYaw = this.rotationYaw;
-                    player.rotationPitch = this.rotationPitch;
-                    player.startRiding(this);
+                player.rotationYaw = this.rotationYaw;
+                player.rotationPitch = this.rotationPitch;
+                player.startRiding(this);
             } else {
                 player.sendMessage(new TranslationTextComponent("chat.pet.notYours"));
             }
@@ -417,7 +444,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
             this.jumpMovementFactor = this.getAIMoveSpeed() * 0.1F;
             if (this.canPassengerSteer()) {
                 this.setAIMoveSpeed((float) this.getAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).getValue());
-                super.travel(new Vec3d(f, movement.y+d0, f1));
+                super.travel(new Vec3d(f, movement.y + d0, f1));
             } else if (livingentity instanceof PlayerEntity) {
                 this.setMotion(Vec3d.ZERO);
             }
@@ -446,7 +473,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
     @Override
     public void setJumpPower(int jumpPowerIn) {
         this.jumpPower = jumpPowerIn;
-        if(jumpPowerIn < 0) {
+        if (jumpPowerIn < 0) {
             jumpPowerIn = 0;
         } else {
         }
@@ -454,7 +481,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
         if (jumpPowerIn >= 90) {
             this.jumpPower = 1.0F;
         } else {
-            this.jumpPower = 0.4F + 0.4F * (float)jumpPowerIn / 90.0F;
+            this.jumpPower = 0.4F + 0.4F * (float) jumpPowerIn / 90.0F;
         }
     }
 
@@ -476,7 +503,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount{
     public void updatePassenger(Entity passenger) {
         super.updatePassenger(passenger);
         if (passenger instanceof MobEntity) {
-            MobEntity mobentity = (MobEntity)passenger;
+            MobEntity mobentity = (MobEntity) passenger;
             this.renderYawOffset = mobentity.renderYawOffset;
         }
 

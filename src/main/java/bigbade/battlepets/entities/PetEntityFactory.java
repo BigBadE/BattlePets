@@ -2,6 +2,7 @@ package bigbade.battlepets.entities;
 
 import bigbade.battlepets.api.PetType;
 import bigbade.battlepets.registries.EntityRegistry;
+import net.minecraft.client.Minecraft;
 import net.minecraft.entity.*;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.CompoundNBT;
@@ -24,6 +25,7 @@ import static net.minecraft.entity.EntityType.applyItemNBT;
 public class PetEntityFactory<T extends PetEntity> implements EntityType.IFactory<PetEntity> {
     @Override
     public PetEntity create(EntityType type, World world) {
-        return new PetEntity(world);
+        System.out.println("FACTORY CALL");
+        return new PetEntity(world, PetType.DOG, Minecraft.getInstance().player.getUniqueID());
     }
 }

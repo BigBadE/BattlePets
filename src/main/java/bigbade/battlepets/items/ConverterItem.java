@@ -46,7 +46,7 @@ public class ConverterItem extends Item {
 
     @Override
     public boolean hitEntity(ItemStack stack, LivingEntity target, LivingEntity attacker) {
-        if(target.getEntityWorld().isRemote)
+        if (target.getEntityWorld().isRemote)
             return true;
         if (itemInteractionForEntity(stack, null, target, Hand.MAIN_HAND)) {
             if (target instanceof PetEntity) {
@@ -120,8 +120,8 @@ public class ConverterItem extends Item {
                 player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.needOwnership"));
                 return;
             }
-        } else if(target instanceof OcelotEntity) {
-            if(!((boolean) target.getDataManager().get(ObfuscationReflectionHelper.getPrivateValue(OcelotEntity.class, null, "IS_TRUSTING")))) {
+        } else if (target instanceof OcelotEntity) {
+            if (!((boolean) target.getDataManager().get(ObfuscationReflectionHelper.getPrivateValue(OcelotEntity.class, null, "IS_TRUSTING")))) {
                 player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.notTamed"));
                 return;
             }
@@ -145,17 +145,18 @@ public class ConverterItem extends Item {
                 continue;
             }
 
-            target.setInvisible(true);
-            CompoundNBT nbt = new CompoundNBT();
-            nbt.putInt("type", type.ordinal());
-            nbt.putUniqueId("owner", player.getGameProfile().getId());
-            if (tameable != null) nbt.putBoolean("sitting", tameable.isSitting());
-            ITextComponent name = null;
+            PetEntity pet = new PetEntity(target.world, type, player.getGameProfile().getId());
+            pet.setPosition(target.posX, target.posY, target.posZ);
+            //pet.setOwnerName( entity.getOwnerName() );
+            pet.setOwnerUUID(player.getGameProfile().getId());
+            pet.setPetType(type);
+            if (tameable != null) pet.setSitting(tameable.isSitting());
             if (target.getCustomName() != null)
-                name = target.getCustomName();
-            PetEntity pet = EntityRegistry.PETENTITY.spawn(target.getEntityWorld(), nbt, null, player, target.getPosition(), SpawnReason.EVENT, false, false);
+                pet.setCustomName(target.getCustomName());
+            target.world.addEntity(pet);
             target.remove();
 
+            System.out.println(1);
             player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.convert.success"));
             return;
         }
