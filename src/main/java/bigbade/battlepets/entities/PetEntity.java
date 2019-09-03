@@ -24,6 +24,7 @@ import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
+import net.minecraft.network.play.server.SEntityMetadataPacket;
 import net.minecraft.particles.ParticleTypes;
 import net.minecraft.potion.Effects;
 import net.minecraft.util.DamageSource;
@@ -44,6 +45,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
 
 public class PetEntity extends AnimalEntity implements IJumpingMount {
     private DataParameter<Integer> level;
@@ -72,7 +74,8 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
         texture = type.textures[0];
 
         dataManager.set(this.type, type.ordinal());
-        dataManager.set(ownerUUID, Optional.of(owner));
+
+        dataManager.set(ownerUUID, Optional.ofNullable(owner));
 
         goalSelector.addGoal(1, new SwimGoal(this));
         goalSelector.addGoal(2, new SitGoal(this));
@@ -246,6 +249,8 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
         compound.putBoolean("sitting", dataManager.get(sitting));
 
         compound.putUniqueId("owner", dataManager.get(ownerUUID).get());
+
+        compound.putString("texture", texture);
     }
 
     @Override
@@ -258,6 +263,8 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
         dataManager.set(sitting, compound.getBoolean("sitting"));
 
         dataManager.set(ownerUUID, Optional.of(compound.getUniqueId("owner")));
+
+        texture = compound.getString("texture");
     }
 
     public void fall(float distance, float damageMultiplier) {
@@ -328,35 +335,39 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
                 return true;
             }
         } else if (held.getItem() instanceof ConverterItem) {
-            player.sendMessage(new TranslationTextComponent("chat.pet.help.level"));
-            player.sendMessage(new TranslationTextComponent("chat.pet.help.inv"));
-            // TODO open inv
+            player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.help.level"));
+            player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.help.inv"));
         } else if (held.getItem() == Items.AIR && !player.isSneaking() /*&& hasSkill(Skill.TRAVEL_MOUNTABLE.id) && hasSaddle()*/) {
             if (player.getUniqueID().equals(getOwnerUUID())) {
                 player.rotationYaw = this.rotationYaw;
                 player.rotationPitch = this.rotationPitch;
                 player.startRiding(this);
             } else {
-                player.sendMessage(new TranslationTextComponent("chat.pet.notYours"));
+                player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.notYours"));
             }
         } else if (held.getItem() instanceof DyeItem) {
-            DyeColor dyecolor = ((DyeItem)held.getItem()).getDyeColor();
-            if (dyecolor.getId() != this.getCollar()) {
-                dataManager.set(collar, dyecolor.getId());
-                if (!player.abilities.isCreativeMode) {
-                    held.shrink(1);
-                }
+            if (player.getUniqueID().equals(getOwnerUUID())) {
+                DyeColor dyecolor = ((DyeItem) held.getItem()).getDyeColor();
+                if (dyecolor.getId() != this.getCollar()) {
+                    dataManager.set(collar, dyecolor.getId());
+                    if (!player.abilities.isCreativeMode) {
+                        held.shrink(1);
+                    }
 
-                return true;
+                    return true;
+                }
+            } else {
+                player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.notYours"));
             }
         } else {
             if (player.getUniqueID().equals(getOwnerUUID())) {
                 setSitting(!isSitting());
             } else {
-                player.sendMessage(new TranslationTextComponent("chat.pet.notYours"));
+                player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.notYours"));
             }
         }
 
+        super.processInteract(player, hand);
         return false;
     }
 
@@ -542,7 +553,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
         return true;
     }
 
-    //Wolf methods
+//Wolf methods
 
     private boolean isWet = false;
     private boolean isShaking = false;
@@ -573,6 +584,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
         this.angry = angry;
     }
 
+    @Override
     public void setAttackTarget(@Nullable LivingEntity entitylivingbaseIn) {
         super.setAttackTarget(entitylivingbaseIn);
         if (entitylivingbaseIn == null) {
@@ -684,10 +696,8 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
             this.isShaking = true;
             this.timeWolfIsShaking = 0.0F;
             this.prevTimeWolfIsShaking = 0.0F;
-        } else {
+        } else
             super.handleStatusUpdate(id);
-        }
-
     }
 
     @OnlyIn(Dist.CLIENT)

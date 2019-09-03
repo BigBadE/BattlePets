@@ -41,7 +41,7 @@ public class ConverterItem extends Item {
 
     @Override
     public boolean itemInteractionForEntity(ItemStack stack, PlayerEntity playerIn, LivingEntity target, Hand hand) {
-        return target instanceof WolfEntity || target instanceof OcelotEntity || target instanceof SlimeEntity || target instanceof SilverfishEntity || target instanceof PigEntity;
+        return target instanceof WolfEntity || target instanceof OcelotEntity || target instanceof SlimeEntity || target instanceof SilverfishEntity || target instanceof PigEntity || target instanceof PetEntity;
     }
 
     @Override
@@ -66,6 +66,7 @@ public class ConverterItem extends Item {
     }
 
     private void levelUp(PetEntity pet, LivingEntity attacker) {
+        System.out.println(1);
         PlayerEntity player = (PlayerEntity) attacker;
         if (pet.getLevel() >= Level.MAX_LEVEL) {
             player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.level.max"));

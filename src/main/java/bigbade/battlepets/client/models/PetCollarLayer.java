@@ -4,12 +4,8 @@ import bigbade.battlepets.api.PetType;
 import bigbade.battlepets.entities.PetEntity;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.client.renderer.entity.IEntityRenderer;
-import net.minecraft.client.renderer.entity.WolfRenderer;
 import net.minecraft.client.renderer.entity.layers.LayerRenderer;
-import net.minecraft.client.renderer.entity.layers.WolfCollarLayer;
 import net.minecraft.client.renderer.entity.model.EntityModel;
-import net.minecraft.client.renderer.entity.model.WolfModel;
-import net.minecraft.entity.passive.WolfEntity;
 import net.minecraft.item.DyeColor;
 import net.minecraft.util.ResourceLocation;
 
@@ -26,6 +22,7 @@ public class PetCollarLayer extends LayerRenderer<PetEntity, EntityModel<PetEnti
             float[] afloat = DyeColor.byId(entityIn.getCollar()).getColorComponentValues();
             GlStateManager.color3f(afloat[0], afloat[1], afloat[2]);
             this.getEntityModel().render(entityIn, p_212842_2_, p_212842_3_, p_212842_5_, p_212842_6_, p_212842_7_, p_212842_8_);
+            GlStateManager.color4f(0, 0, 0, 0);
         }
     }
 

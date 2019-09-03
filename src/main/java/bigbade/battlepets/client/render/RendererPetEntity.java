@@ -1,5 +1,6 @@
 package bigbade.battlepets.client.render;
 
+import afu.org.checkerframework.checker.oigj.qual.O;
 import bigbade.battlepets.BattlePets;
 import bigbade.battlepets.api.PetType;
 import bigbade.battlepets.client.models.*;
@@ -12,6 +13,8 @@ import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.client.renderer.entity.model.CatModel;
 import net.minecraft.client.renderer.entity.model.EntityModel;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.entity.passive.WolfEntity;
+import net.minecraft.item.DyeColor;
 import net.minecraft.util.ResourceLocation;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -46,7 +49,7 @@ public class RendererPetEntity extends MobRenderer<PetEntity, EntityModel<PetEnt
         Minecraft.getInstance().getTextureManager().bindTexture(getEntityTexture(pet));
         super.doRender(pet, par2, par4, par6, par8, par9);
 
-        // TODO: Render armor
+        // TODO work on saddles
 
         if (hasSaddle(pet)) {
             Minecraft.getInstance().getTextureManager().bindTexture(new ResourceLocation("battlepets", "textures/entity/" + pet.getPetType().name().toLowerCase() + "/saddle.png"));
@@ -130,6 +133,11 @@ public class RendererPetEntity extends MobRenderer<PetEntity, EntityModel<PetEnt
                 renderLivingLabel(pet, pet.getCustomName().getFormattedText(), pet.posX, pet.posY, pet.posZ, 4);
             }
         }
+    }
+
+    @Override
+    protected float handleRotationFloat(PetEntity livingBase, float partialTicks) {
+        return livingBase.getTailRotation();
     }
 
     private boolean hasSaddle(PetEntity pet) {

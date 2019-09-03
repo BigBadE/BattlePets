@@ -134,6 +134,6 @@ public class ModelDog<T extends PetEntity> extends EntityModel<PetEntity> {
         super.setRotationAngles(entityIn, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch, scaleFactor);
         this.wolfHeadMain.rotateAngleX = headPitch * ((float)Math.PI / 180F);
         this.wolfHeadMain.rotateAngleY = netHeadYaw * ((float)Math.PI / 180F);
-        this.wolfTail.rotateAngleX = 1.25f;
+        this.wolfTail.rotateAngleX = ageInTicks;
     }
 }
