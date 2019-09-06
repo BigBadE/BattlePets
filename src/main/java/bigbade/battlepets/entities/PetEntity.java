@@ -5,26 +5,31 @@ import bigbade.battlepets.ai.SitGoal;
 import bigbade.battlepets.ai.*;
 import bigbade.battlepets.api.Level;
 import bigbade.battlepets.api.PetType;
+import bigbade.battlepets.containers.PetContainer;
+import bigbade.battlepets.containers.PetInventoryContainer;
 import bigbade.battlepets.items.ConverterItem;
 import bigbade.battlepets.registries.EntityRegistry;
 import bigbade.battlepets.skills.AttackSkill;
 import bigbade.battlepets.skills.FoodSkill;
 import bigbade.battlepets.skills.Skill;
 import com.google.common.primitives.Ints;
+import io.netty.buffer.Unpooled;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.SoundType;
 import net.minecraft.entity.*;
 import net.minecraft.entity.ai.goal.*;
 import net.minecraft.entity.monster.AbstractSkeletonEntity;
 import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.WolfEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.inventory.container.Container;
+import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.item.*;
 import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.network.PacketBuffer;
 import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
-import net.minecraft.network.play.server.SEntityMetadataPacket;
 import net.minecraft.particles.ParticleTypes;
 import net.minecraft.potion.Effects;
 import net.minecraft.util.DamageSource;
@@ -47,14 +52,15 @@ import java.util.Optional;
 import java.util.UUID;
 
 
-public class PetEntity extends AnimalEntity implements IJumpingMount {
-    private DataParameter<Integer> level;
-    private DataParameter<Integer> skillPoints;
-    private DataParameter<Integer> type;
-    private DataParameter<Integer> collar;
-    private DataParameter<Boolean> sitting;
-    private DataParameter<Optional<UUID>> ownerUUID;
-
+public class PetEntity extends AnimalEntity implements IJumpingMount, INamedContainerProvider {
+    private static DataParameter<Integer> level = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+    private static DataParameter<Integer> skillPoints = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+    private static DataParameter<Integer> type = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+    private static DataParameter<Integer> collar = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+    private static DataParameter<Boolean> sitting = EntityDataManager.createKey(PetEntity.class, DataSerializers.BOOLEAN);
+    private static DataParameter<Optional<UUID>> ownerUUID = EntityDataManager.createKey(PetEntity.class, DataSerializers.OPTIONAL_UNIQUE_ID);
+    private static DataParameter<String> texture = EntityDataManager.createKey(PetEntity.class, DataSerializers.STRING);
+    private PetInventoryContainer inv;
     private float width;
     private float height;
     private List<Integer> skills;
@@ -64,19 +70,19 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
 
     private float jumpPower;
 
-    private String texture;
-
     public PetEntity(World worldIn, PetType type, UUID owner) {
         super(EntityRegistry.PETENTITY, worldIn);
 
         setSize(type.width, type.height);
-        skills = Ints.asList(type.skills);
-        texture = type.textures[0];
+        inv = new PetInventoryContainer(this);
 
-        dataManager.set(this.type, type.ordinal());
+        skills = Ints.asList(type.skills);
+
+        dataManager.set(PetEntity.type, type.ordinal());
 
         dataManager.set(ownerUUID, Optional.ofNullable(owner));
 
+        dataManager.set(texture, type.textures[0]);
         goalSelector.addGoal(1, new SwimGoal(this));
         goalSelector.addGoal(2, new SitGoal(this));
         goalSelector.addGoal(3, new LeapAtTargetGoal(this, 0.4F));
@@ -111,19 +117,14 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
     @Override
     public void registerData() {
         super.registerData();
-        level = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
-        skillPoints = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
-        sitting = EntityDataManager.createKey(PetEntity.class, DataSerializers.BOOLEAN);
-        type = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
-        ownerUUID = EntityDataManager.createKey(PetEntity.class, DataSerializers.OPTIONAL_UNIQUE_ID);
-        collar = EntityDataManager.createKey(PetEntity.class, DataSerializers.VARINT);
+
         dataManager.register(level, 0);
         dataManager.register(skillPoints, 1);
         dataManager.register(sitting, false);
 
-        dataManager.register(this.type, 0);
+        dataManager.register(type, 0);
         dataManager.register(ownerUUID, Optional.empty());
-
+        dataManager.register(texture, PetType.DOG.textures[0]);
         dataManager.register(collar, DyeColor.RED.getId());
     }
 
@@ -143,6 +144,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
     }
 
     public void setSitting(boolean sitting) {
+        System.out.println("Sitting: " + sitting);
         dataManager.set(this.sitting, sitting);
     }
 
@@ -210,12 +212,12 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
             if (angry) builder.append("angry-");
             else builder.append("tame-");
         }
-        builder.append(texture).append(".png");
+        builder.append(dataManager.get(texture)).append(".png");
         return builder.toString();
     }
 
     public void setTexture(String texture) {
-        this.texture = texture;
+        dataManager.set(PetEntity.texture, texture);
     }
 
     public boolean hasSkill(int id) {
@@ -250,7 +252,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
 
         compound.putUniqueId("owner", dataManager.get(ownerUUID).get());
 
-        compound.putString("texture", texture);
+        compound.putString("texture", dataManager.get(texture));
     }
 
     @Override
@@ -264,7 +266,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
 
         dataManager.set(ownerUUID, Optional.of(compound.getUniqueId("owner")));
 
-        texture = compound.getString("texture");
+        dataManager.set(texture, compound.getString("texture"));
     }
 
     public void fall(float distance, float damageMultiplier) {
@@ -361,7 +363,8 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
             }
         } else {
             if (player.getUniqueID().equals(getOwnerUUID())) {
-                setSitting(!isSitting());
+                if (hand == Hand.MAIN_HAND)
+                    setSitting(!isSitting());
             } else {
                 player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.notYours"));
             }
@@ -397,23 +400,21 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
             damage += attack.damage;
         }
 
-        //TODO claws + inv
-        /*if (hasSkill(Skill.INVENTORY_WEAPON.id) && inv.getStackInSlot(2) != null) {
+        if (hasSkill(Skill.INVENTORY_WEAPON.id) && inv.getStackInSlot(2) != null) {
             ItemStack stack = inv.getStackInSlot(2);
-            if (stack.getItem() instanceof ClawItem) {
+            //TODO claw
+            /*if (stack.getItem() instanceof ClawItem) {
                 ClawItem claw = (ClawItem) stack.getItem();
                 damage += claw.damage;
-            }
-        }*/
+            }*/
+        }
 
         return entity.attackEntityFrom(DamageSource.causeMobDamage(this), (float) damage);
     }
 
     @Override
     public int getTotalArmorValue() {
-
-        //TODO inv
-        /*if (!hasSkill(Skill.INVENTORY_ARMOR.id) || inv.getStackInSlot(1) == null) {
+        if (!hasSkill(Skill.INVENTORY_ARMOR.id) || inv.getStackInSlot(1) == null) {
             return 0;
         }
 
@@ -424,7 +425,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
             return 7;
         } else if (stack.getItem() == Items.DIAMOND_HORSE_ARMOR) {
             return 11;
-        }*/
+        }
 
         return 0;
     }
@@ -444,7 +445,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
     @Override
     public void travel(Vec3d movement) {
         //TODO saddle
-        if (this.isBeingRidden() /*&& hasSkill(Skill.TRAVEL_MOUNTABLE.id) && hasSaddle()*/ && !isSitting()/* && this.func_110257_ck()*/) {
+        if (this.isBeingRidden() && hasSkill(Skill.TRAVEL_MOUNTABLE.id) && hasSaddle() && !isSitting()/* && this.func_110257_ck()*/) {
             LivingEntity livingentity = (LivingEntity) this.getPassengers().get(0);
             this.rotationYaw = livingentity.rotationYaw;
             this.prevRotationYaw = this.rotationYaw;
@@ -551,6 +552,14 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
     @Override
     public boolean canBeSteered() {
         return true;
+    }
+
+    public PetInventoryContainer getPetInventory() {
+        return inv;
+    }
+
+    public boolean hasSaddle() {
+        return inv.getStackInSlot(0).getItem() == Items.SADDLE;
     }
 
 //Wolf methods
@@ -703,5 +712,11 @@ public class PetEntity extends AnimalEntity implements IJumpingMount {
     @OnlyIn(Dist.CLIENT)
     public float getTailRotation() {
         return ((float) Math.PI / 5F);
+    }
+
+    @Nullable
+    @Override
+    public Container createMenu(int id, PlayerInventory inventory, PlayerEntity p_createMenu_3_) {
+        return new PetContainer(id, inventory, new PacketBuffer(Unpooled.buffer(4)).writeVarInt(getEntityId()));
     }
 }

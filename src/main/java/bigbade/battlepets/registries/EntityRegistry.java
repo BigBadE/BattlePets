@@ -18,6 +18,7 @@ import net.minecraftforge.registries.ObjectHolder;
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
 public class EntityRegistry {
 
+    @ObjectHolder("pet")
     public static EntityType<PetEntity> PETENTITY;
 
     @SubscribeEvent
