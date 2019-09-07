@@ -19,13 +19,16 @@ import net.minecraft.block.SoundType;
 import net.minecraft.entity.*;
 import net.minecraft.entity.ai.goal.*;
 import net.minecraft.entity.monster.AbstractSkeletonEntity;
+import net.minecraft.entity.monster.SlimeEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.item.*;
 import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.network.NetworkManager;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
@@ -40,11 +43,14 @@ import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.network.NetworkHooks;
+import org.apache.logging.log4j.core.jmx.Server;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -144,7 +150,6 @@ public class PetEntity extends AnimalEntity implements IJumpingMount, INamedCont
     }
 
     public void setSitting(boolean sitting) {
-        System.out.println("Sitting: " + sitting);
         dataManager.set(this.sitting, sitting);
     }
 
@@ -212,7 +217,7 @@ public class PetEntity extends AnimalEntity implements IJumpingMount, INamedCont
             if (angry) builder.append("angry-");
             else builder.append("tame-");
         }
-        builder.append(dataManager.get(texture)).append(".png");
+        builder.append((dataManager.get(texture).startsWith("tame-") && angry) ? dataManager.get(texture).replace("tame-", "") : dataManager.get(texture)).append(".png");
         return builder.toString();
     }
 
@@ -283,8 +288,9 @@ public class PetEntity extends AnimalEntity implements IJumpingMount, INamedCont
                 }
             }
 
-            BlockState blockstate = this.world.getBlockState(new BlockPos(this.posX, this.posY - 0.2D - (double) this.prevRotationYaw, this.posZ));
-            if (!blockstate.isAir() && !this.isSilent()) {
+            BlockPos pos = new BlockPos(this.posX, this.posY - 0.2D - (double) this.prevRotationYaw, this.posZ);
+            BlockState blockstate = this.world.getBlockState(pos);
+            if (!blockstate.isAir(world, pos) && !this.isSilent()) {
                 SoundType soundtype = blockstate.getSoundType();
                 this.world.playSound(null, this.posX, this.posY, this.posZ, soundtype.getStepSound(), this.getSoundCategory(), soundtype.getVolume() * 0.5F, soundtype.getPitch() * 0.75F);
             }
@@ -294,18 +300,29 @@ public class PetEntity extends AnimalEntity implements IJumpingMount, INamedCont
 
     @Override
     public boolean processInteract(PlayerEntity player, Hand hand) {
-        //TODO open pet inventory
-        /*if (player.isSneaking() && held.getItem() instanceof ConverterItem) {
+        if (world.isRemote) {
+            return false;
+        }
+
+        if (player.isSneaking() && player.getHeldItem(hand).getItem() instanceof ConverterItem) {
             if (player.getUniqueID().equals(getOwnerUUID())) {
-                BattlePets.proxy.setPendingPetForGui((world.isRemote ? 0 : 1), this);
-                player.openContainer(UsefulPets.instance, UsefulPets.PET_INVENTORY_GUI_ID, world, 0, 0, 0);
+                //I think this works...
+                PetEntity pet = this;
+                NetworkHooks.openGui((ServerPlayerEntity) player, new INamedContainerProvider() {
+                    @Override
+                    public ITextComponent getDisplayName() {
+                        return pet.getDisplayName();
+                    }
+
+                    @Nullable
+                    @Override
+                    public Container createMenu(int id, PlayerInventory playerInventory, PlayerEntity playerEntity) {
+                        return pet.createMenu(id, playerInventory, playerEntity);
+                    }
+                }, buf -> buf.writeInt(getEntityId()));
             } else {
                 player.sendMessage(new TranslationTextComponent("chat.pet.notYours"));
             }
-            return false;
-        }*/
-
-        if (world.isRemote) {
             return false;
         }
 
@@ -717,6 +734,6 @@ public class PetEntity extends AnimalEntity implements IJumpingMount, INamedCont
     @Nullable
     @Override
     public Container createMenu(int id, PlayerInventory inventory, PlayerEntity p_createMenu_3_) {
-        return new PetContainer(id, inventory, new PacketBuffer(Unpooled.buffer(4)).writeVarInt(getEntityId()));
+        return new PetContainer(id, inventory, new PacketBuffer(Unpooled.buffer(4, 4).writeInt(getEntityId())));
     }
 }
