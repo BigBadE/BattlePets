@@ -54,7 +54,7 @@ public class ModelCat<T extends PetEntity> extends EntityModel<PetEntity> {
     /**
      * Sets the models various rotation angles then renders the model.
      */
-    public void render(T entityIn, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, float scale) {
+    public void render(PetEntity entityIn, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, float scale) {
         this.setRotationAngles(entityIn, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch, scale);
         if (this.isChild) {
             float f = 2.0F;
@@ -87,7 +87,7 @@ public class ModelCat<T extends PetEntity> extends EntityModel<PetEntity> {
 
     }
 
-    public void setRotationAngles(T entityIn, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, float scaleFactor) {
+    public void setRotationAngles(PetEntity entityIn, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, float scaleFactor) {
         this.ocelotHead.rotateAngleX = headPitch * ((float)Math.PI / 180F);
         this.ocelotHead.rotateAngleY = netHeadYaw * ((float)Math.PI / 180F);
         if (this.state != 3) {
@@ -113,7 +113,7 @@ public class ModelCat<T extends PetEntity> extends EntityModel<PetEntity> {
 
     }
 
-    public void setLivingAnimations(T entityIn, float limbSwing, float limbSwingAmount, float partialTick) {
+    public void setLivingAnimations(PetEntity entityIn, float limbSwing, float limbSwingAmount, float partialTick) {
         this.ocelotBody.rotationPointY = 12.0F;
         this.ocelotBody.rotationPointZ = -10.0F;
         this.ocelotHead.rotationPointY = 15.0F;
@@ -146,6 +146,26 @@ public class ModelCat<T extends PetEntity> extends EntityModel<PetEntity> {
             this.ocelotTail.rotateAngleX = ((float)Math.PI / 2F);
             this.ocelotTail2.rotateAngleX = ((float)Math.PI / 2F);
             this.state = 2;
+        } else if (entityIn.isSitting())
+        {
+            this.ocelotBody.rotateAngleX = ((float)Math.PI / 4F);
+            this.ocelotBody.rotationPointY += -4.0F;
+            this.ocelotBody.rotationPointZ += 5.0F;
+            this.ocelotHead.rotationPointY += -3.3F;
+            ++this.ocelotHead.rotationPointZ;
+            this.ocelotTail.rotationPointY += 8.0F;
+            this.ocelotTail.rotationPointZ += -2.0F;
+            this.ocelotTail2.rotationPointY += 2.0F;
+            this.ocelotTail2.rotationPointZ += -0.8F;
+            this.ocelotTail.rotateAngleX = 1.7278761F;
+            this.ocelotTail2.rotateAngleX = 2.670354F;
+            this.ocelotFrontLeftLeg.rotateAngleX = this.ocelotFrontRightLeg.rotateAngleX = -0.15707964F;
+            this.ocelotFrontLeftLeg.rotationPointY = this.ocelotFrontRightLeg.rotationPointY = 15.8F;
+            this.ocelotFrontLeftLeg.rotationPointZ = this.ocelotFrontRightLeg.rotationPointZ = -7.0F;
+            this.ocelotBackLeftLeg.rotateAngleX = this.ocelotBackRightLeg.rotateAngleX = -((float)Math.PI / 2F);
+            this.ocelotBackLeftLeg.rotationPointY = this.ocelotBackRightLeg.rotationPointY = 21.0F;
+            this.ocelotBackLeftLeg.rotationPointZ = this.ocelotBackRightLeg.rotationPointZ = 1.0F;
+            this.state = 3;
         } else {
             this.state = 1;
         }

@@ -66,7 +66,6 @@ public class ConverterItem extends Item {
     }
 
     private void levelUp(PetEntity pet, LivingEntity attacker) {
-        System.out.println(1);
         PlayerEntity player = (PlayerEntity) attacker;
         if (pet.getLevel() >= Level.MAX_LEVEL) {
             player.sendMessage(new TranslationTextComponent("chat.battlepets.pet.level.max"));

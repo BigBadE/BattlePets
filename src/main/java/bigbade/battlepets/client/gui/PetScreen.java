@@ -3,33 +3,20 @@ package bigbade.battlepets.client.gui;
 import bigbade.battlepets.api.PetType;
 import bigbade.battlepets.containers.PetContainer;
 import bigbade.battlepets.entities.PetEntity;
+import bigbade.battlepets.network.BattlepetsNetworkHandler;
+import bigbade.battlepets.network.packet.TextureChangePacket;
 import bigbade.battlepets.skills.Skill;
-import com.mojang.blaze3d.platform.GlStateManager;
-import net.minecraft.client.GameSettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.screen.ControlsScreen;
-import net.minecraft.client.gui.screen.IngameMenuScreen;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
 import net.minecraft.client.gui.screen.inventory.InventoryScreen;
 import net.minecraft.client.gui.widget.Widget;
 import net.minecraft.client.gui.widget.button.Button;
-import net.minecraft.client.gui.widget.button.OptionButton;
-import net.minecraft.client.renderer.RenderHelper;
-import net.minecraft.client.renderer.entity.EntityRendererManager;
-import net.minecraft.client.resources.I18n;
-import net.minecraft.client.settings.AbstractOption;
-import net.minecraft.client.settings.AmbientOcclusionStatus;
-import net.minecraft.client.settings.BooleanOption;
-import net.minecraft.client.settings.IteratableOption;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.inventory.IInventory;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
-import net.minecraftforge.fml.network.NetworkHooks;
+import net.minecraftforge.fml.network.PacketDistributor;
 import org.lwjgl.opengl.GL11;
 
 public class PetScreen extends ContainerScreen<PetContainer> {
@@ -50,13 +37,13 @@ public class PetScreen extends ContainerScreen<PetContainer> {
         Minecraft mc = Minecraft.getInstance();
 
         buttons.clear();
-        buttons.add(new Button(guiLeft + 8, guiTop + 39, 48, 20, new TranslationTextComponent("gui.battlepets.pet.skills").getFormattedText(), (button) -> {
+        addButton(new Button(guiLeft + 8, guiTop + 39, 48, 20, new TranslationTextComponent("gui.battlepets.pet.skills").getFormattedText(), (button) -> {
             mc.player.closeScreen();
             //TODO skill inv
             //NetworkHooks.openGui(mc.player, new CulinaryWorkbenchContainerProvider(pos));
         }));
 
-        buttons.add(texButton = new Button(guiLeft + 8, guiTop - 28, xSize - 16, 20, "<...>", (button) -> {
+        addButton(texButton = new Button(guiLeft + 8, guiTop - 28, xSize - 16, 20, "<...>", (button) -> {
             PetType type = pet.getPetType();
             if (++currTexIndex >= type.textures.length) {
                 currTexIndex = 0;
@@ -124,6 +111,8 @@ public class PetScreen extends ContainerScreen<PetContainer> {
                     tex = i;
             currTexIndex = tex;
         }
-        texButton.setMessage(new TranslationTextComponent("pet.battlepets.texture").getFormattedText().replace("%s", new TranslationTextComponent("pet.battlepets.texture." + pet.getPetType().name().toLowerCase() + "." + pet.getTexture()).getFormattedText()));
+
+        BattlepetsNetworkHandler.INSTANCE.sendToServer(new TextureChangePacket(pet.getTextureName(), pet.getEntityId()));
+        texButton.setMessage(new TranslationTextComponent("pet.battlepets.texture").getFormattedText() + new TranslationTextComponent("pet.battlepets.texture." + pet.getPetType().name().toLowerCase() + "." + pet.getTextureName()).getFormattedText());
     }
 }

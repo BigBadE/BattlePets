@@ -5,6 +5,7 @@ import net.minecraft.client.renderer.entity.model.RendererModel;
 import net.minecraft.client.renderer.entity.model.SilverfishModel;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.monster.SilverfishEntity;
+import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
@@ -12,60 +13,64 @@ import org.lwjgl.opengl.GL11;
 
 @OnlyIn(Dist.CLIENT)
 public class ModelSilverfish extends SilverfishModel {
+    private final RendererModel[] field_78171_a;
+    private final RendererModel[] field_78169_b;
+    private final float[] zPlacement = new float[7];
+    private static final int[][] SILVERFISH_BOX_LENGTH = new int[][]{{3, 2, 2}, {4, 3, 2}, {6, 4, 3}, {3, 3, 3}, {2, 2, 3}, {2, 1, 2}, {1, 1, 2}};
+    private static final int[][] SILVERFISH_TEXTURE_POSITIONS = new int[][]{{0, 0}, {0, 4}, {0, 9}, {0, 16}, {0, 22}, {11, 0}, {13, 4}};
+
     public ModelSilverfish() {
-        normal = new SilverfishModel<SilverfishEntity>();
+        this.field_78171_a = new RendererModel[7];
+        float f = -3.5F;
 
-        body = ObfuscationReflectionHelper.getPrivateValue(SilverfishModel.class, this, 0);
-        wings = ObfuscationReflectionHelper.getPrivateValue(ModelSilverfish.class, this, 1);
-        body[3].rotateAngleX = body[4].rotateAngleX = body[5].rotateAngleX = body[6].rotateAngleX = 3.14f / 2;
-        body[3].rotationPointZ = body[4].rotationPointZ = body[5].rotationPointZ = body[6].rotationPointZ = 0;
-        body[6].offsetY = 0;
-        body[5].offsetY = -0.1f;
-        body[4].rotateAngleX *= -0.7f;
-        body[4].offsetZ = 0.06f;
-        body[4].offsetY = -0.2f;
-        body[3].rotateAngleX *= -0.45f;
-        body[3].offsetY = -0.3f;
-        body[3].offsetZ = -0.05f;
-        wings[1].rotateAngleX = body[5].rotateAngleX * 1.4f;
-        wings[1].rotationPointZ = body[5].rotationPointZ;
-        wings[1].offsetY = body[4].offsetX;
-        wings[1].offsetZ = -0.05f;
-    }
-
-    @Override
-    public void render(Entity entity, float par2, float par3, float par4, float par5, float par6, float par7) {
-        PetEntity pet = (PetEntity) entity;
-
-        GL11.glPushMatrix();
-
-        if (pet.isSitting()) {
-            GL11.glTranslatef(0, 0, 0.2f);
-            GL11.glPushMatrix();
-            setRotationAngles(entity, par2, par3, par4, par5, par6, par7);
-            for (int i = 3; i < body.length; ++i) {
-                body[i].render(par7);
+        for(int i = 0; i < this.field_78171_a.length; ++i) {
+            this.field_78171_a[i] = new RendererModel(this, SILVERFISH_TEXTURE_POSITIONS[i][0], SILVERFISH_TEXTURE_POSITIONS[i][1]);
+            this.field_78171_a[i].addBox((float)SILVERFISH_BOX_LENGTH[i][0] * -0.5F, 0.0F, (float)SILVERFISH_BOX_LENGTH[i][2] * -0.5F, SILVERFISH_BOX_LENGTH[i][0], SILVERFISH_BOX_LENGTH[i][1], SILVERFISH_BOX_LENGTH[i][2]);
+            this.field_78171_a[i].setRotationPoint(0.0F, (float)(24 - SILVERFISH_BOX_LENGTH[i][1]), f);
+            this.zPlacement[i] = f;
+            if (i < this.field_78171_a.length - 1) {
+                f += (float)(SILVERFISH_BOX_LENGTH[i][2] + SILVERFISH_BOX_LENGTH[i + 1][2]) * 0.5F;
             }
-            wings[1].render(par7);
-            GL11.glPopMatrix();
-
-            GL11.glPushMatrix();
-            GL11.glTranslatef(0, -0.4f, -0.3f);
-            for (int i = 0; i < 3; ++i) {
-                body[i].render(par7);
-            }
-            wings[0].render(par7);
-            wings[2].render(par7);
-            GL11.glPopMatrix();
-        } else {
-            GL11.glTranslatef(0, 0, -0.2f);
-            normal.render(entity, par2, par3, par4, par5, par6, par7);
         }
 
-        GL11.glPopMatrix();
+        this.field_78169_b = new RendererModel[3];
+        this.field_78169_b[0] = new RendererModel(this, 20, 0);
+        this.field_78169_b[0].addBox(-5.0F, 0.0F, (float)SILVERFISH_BOX_LENGTH[2][2] * -0.5F, 10, 8, SILVERFISH_BOX_LENGTH[2][2]);
+        this.field_78169_b[0].setRotationPoint(0.0F, 16.0F, this.zPlacement[2]);
+        this.field_78169_b[1] = new RendererModel(this, 20, 11);
+        this.field_78169_b[1].addBox(-3.0F, 0.0F, (float)SILVERFISH_BOX_LENGTH[4][2] * -0.5F, 6, 4, SILVERFISH_BOX_LENGTH[4][2]);
+        this.field_78169_b[1].setRotationPoint(0.0F, 20.0F, this.zPlacement[4]);
+        this.field_78169_b[2] = new RendererModel(this, 20, 18);
+        this.field_78169_b[2].addBox(-3.0F, 0.0F, (float)SILVERFISH_BOX_LENGTH[4][2] * -0.5F, 6, 5, SILVERFISH_BOX_LENGTH[1][2]);
+        this.field_78169_b[2].setRotationPoint(0.0F, 19.0F, this.zPlacement[1]);
     }
 
-    protected SilverfishModel normal;
-    protected RendererModel[] body;
-    protected RendererModel[] wings;
+    /**
+     * Sets the models various rotation angles then renders the model.
+     */
+    public void render(PetEntity entityIn, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, float scale) {
+        this.setRotationAngles(entityIn, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch, scale);
+
+        for(RendererModel renderermodel : this.field_78171_a) {
+            renderermodel.render(scale);
+        }
+
+        for(RendererModel renderermodel1 : this.field_78169_b) {
+            renderermodel1.render(scale);
+        }
+
+    }
+
+    public void setRotationAngles(PetEntity entityIn, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, float scaleFactor) {
+        for(int i = 0; i < this.field_78171_a.length; ++i) {
+            this.field_78171_a[i].rotateAngleY = MathHelper.cos(ageInTicks * 0.9F + (float)i * 0.15F * (float)Math.PI) * (float)Math.PI * 0.05F * (float)(1 + Math.abs(i - 2));
+            this.field_78171_a[i].rotationPointX = MathHelper.sin(ageInTicks * 0.9F + (float)i * 0.15F * (float)Math.PI) * (float)Math.PI * 0.2F * (float)Math.abs(i - 2);
+        }
+
+        this.field_78169_b[0].rotateAngleY = this.field_78171_a[2].rotateAngleY;
+        this.field_78169_b[1].rotateAngleY = this.field_78171_a[4].rotateAngleY;
+        this.field_78169_b[1].rotationPointX = this.field_78171_a[4].rotationPointX;
+        this.field_78169_b[2].rotateAngleY = this.field_78171_a[1].rotateAngleY;
+        this.field_78169_b[2].rotationPointX = this.field_78171_a[1].rotationPointX;
+    }
 }

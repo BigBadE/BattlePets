@@ -17,7 +17,7 @@ public class PetCollarLayer extends LayerRenderer<PetEntity, EntityModel<PetEnti
     }
 
     public void render(PetEntity entityIn, float p_212842_2_, float p_212842_3_, float p_212842_4_, float p_212842_5_, float p_212842_6_, float p_212842_7_, float p_212842_8_) {
-        if (entityIn.getPetType() == PetType.DOG && !entityIn.isInvisible()) {
+        if (entityIn.getTextureName().startsWith("tame-") && entityIn.getPetType() == PetType.DOG && !entityIn.isInvisible()) {
             this.bindTexture(WOLF_COLLAR);
             float[] afloat = DyeColor.byId(entityIn.getCollar()).getColorComponentValues();
             GlStateManager.color3f(afloat[0], afloat[1], afloat[2]);

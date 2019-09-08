@@ -215,10 +215,13 @@ public class PetEntity extends AnimalEntity implements IJumpingMount, INamedCont
         builder.append(petType.name().toLowerCase()).append("/");
         if (petType == PetType.DOG) {
             if (angry) builder.append("angry-");
-            else builder.append("tame-");
         }
         builder.append((dataManager.get(texture).startsWith("tame-") && angry) ? dataManager.get(texture).replace("tame-", "") : dataManager.get(texture)).append(".png");
         return builder.toString();
+    }
+
+    public String getTextureName() {
+        return dataManager.get(texture);
     }
 
     public void setTexture(String texture) {

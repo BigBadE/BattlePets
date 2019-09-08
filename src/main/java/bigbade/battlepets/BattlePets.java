@@ -1,6 +1,8 @@
 package bigbade.battlepets;
 
 import bigbade.battlepets.client.gui.PetScreen;
+import bigbade.battlepets.network.BattlepetsNetworkHandler;
+import bigbade.battlepets.network.packet.TextureChangePacket;
 import bigbade.battlepets.registries.ContainerRegistry;
 import net.minecraft.client.gui.ScreenManager;
 import net.minecraftforge.fml.common.Mod;
@@ -22,5 +24,6 @@ public class BattlePets {
 
     private void preInit(final FMLClientSetupEvent event) {
         ScreenManager.registerFactory(ContainerRegistry.PETCONTAINER, PetScreen::new);
+        BattlepetsNetworkHandler.INSTANCE.registerMessage(0, TextureChangePacket.class, TextureChangePacket::encode, TextureChangePacket::new, TextureChangePacket::handle);
     }
 }
